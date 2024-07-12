@@ -1,3 +1,4 @@
+browser/
 output/
 venv/
 temp/
@@ -16,3 +17,8 @@ testrun/*
 .~lock*
 *.pkl
 challenge.xlsx
+interactive_console_output.xml
+log.html
+output.xml
+playwright-log.txt
+report.html

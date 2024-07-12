@@ -1,53 +1,80 @@
 *** Settings ***
-Documentation       Robot to solve the first challenge at rpachallenge.com,
-...                 which consists of filling a form that randomly rearranges
-...                 itself for ten times, with data taken from a provided
-...                 Microsoft Excel file.
+Documentation  Pay Virgin Media a penny at a time
 
-Library             RPA.Browser.Playwright
-Library             RPA.Excel.Files
-Library             RPA.HTTP
+Library  RPA.Browser.Playwright
+Library  RPA.HTTP
+Library  String
 
 
 *** Tasks ***
-Complete the challenge
-    Start the challenge
-    Fill the forms
-    Collect the results
+Pay the bill
+    Log in to My Virgin Media
+    ${balance} =  Open payment page and check balance
+    WHILE  $balance != "£0.00"
+        TRY
+            Navigate to quick payment form
+            Fill and submit the quick pay form
+            Fill and submit the security code form
+        EXCEPT
+            Log  Retrying payment since Virgin fucked something up
+        FINALLY
+            ${balance} =  Open payment page and check balance
+        END
+    END
+    Stop the world
 
 
 *** Keywords ***
-Start the challenge
-    New Browser
-    New Page    http://rpachallenge.com/
-    RPA.HTTP.Download
-    ...    http://rpachallenge.com/assets/downloadFiles/challenge.xlsx
-    ...    overwrite=True
-    Click    button
+Log in to My Virgin Media
+    New Browser  headless=False  browser=firefox
 
-Fill the forms
-    ${people}=    Get the list of people from the Excel file
-    FOR    ${person}    IN    @{people}
-        Fill and submit the form    ${person}
+    Set Browser Timeout  timeout=30s
+    New Page             https://www.virginmedia.com/myvmo2
+
+    # Use cookiebro to extract these, and cookies.jq to format them
+    # FIXME
+
+    TRY
+        ${acceptCookies} =  Get Element  //button[contains(text(), "Accept essential cookies only")]
+        Click  ${acceptCookies}
+    EXCEPT
+        Log  No cookie prompt this time
     END
 
-Get the list of people from the Excel file
-    Open Workbook    challenge.xlsx
-    ${table}=    Read Worksheet As Table    header=True
-    Close Workbook
-    RETURN    ${table}
+    Click                  //span[contains(text(), "Sign in")]
+    Wait For All Promises
 
-Fill and submit the form
-    [Arguments]    ${person}
-    Fill Text    //input[@ng-reflect-name="labelFirstName"]    ${person}[First Name]
-    Fill Text    //input[@ng-reflect-name="labelLastName"]    ${person}[Last Name]
-    Fill Text    //input[@ng-reflect-name="labelCompanyName"]    ${person}[Company Name]
-    Fill Text    //input[@ng-reflect-name="labelRole"]    ${person}[Role in Company]
-    Fill Text    //input[@ng-reflect-name="labelAddress"]    ${person}[Address]
-    Fill Text    //input[@ng-reflect-name="labelEmail"]    ${person}[Email]
-    Fill Text    //input[@ng-reflect-name="labelPhone"]    ${person}[Phone Number]
-    Click    input[type=submit]
+Open payment page and check balance
+    Go To  https://www.virginmedia.com/support/help/billing-and-payment/my-virgin-media/billing
+    TRY
+        Get Element  //div[contains(concat(' ', @class, ' '), ' tour-tooltip ')]
+        Click        //button[contains(concat(' ', @class, ' '), ' tour-tooltip-header__close ')]
+    EXCEPT
+        Log  No tour this time around
+    END
 
-Collect the results
-    Take Screenshot  %{ROBOT_ARTIFACTS}${/}result.png  selector=css=div.congratulations
+    Hover  //button[contains(text(), "Make a payment")]
+    Click  //button[contains(text(), "Make a payment")]
+
+    ${balance} =  Get Text  //p[contains(concat(' ', @class, ' '), ' bill-payment-card-price ')]
+    RETURN  ${balance}
+
+Navigate to quick payment form
+    Click  //button[contains(text(), "Pay now")]
+
+Fill and submit the quick pay form
+    Fill Text          //input[@name="amount"]                0.01
+    Hover              //input[contains(@value, "Continue")]
+    Fill Text          //input[@name="emailAddress"]          luke@carrier.family
+    Scroll To          vertical=100%
+    Fill Text          //input[@name="confirmEmailAddress"]   luke@carrier.family
+    Click              //input[contains(@value, "Continue")]
+
+Fill and submit the security code form
+    Type Text  //iframe[@id="myiframe"] >>> //iframe[@id="#securityCode"] >>> //input[@id="securityCode"]  333
+    Click      //iframe[@id="myiframe"] >>> //input[contains(@value, "Continue")]
+    Hover      //input[contains(@value, "Pay now")]
+    Click      //input[contains(@value, "Pay now")]
+
+Stop the world
     Close Browser

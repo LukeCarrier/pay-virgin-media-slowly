@@ -1,0 +1,1 @@
+.[] | "Add Cookie  \(.name)  \(.value)  domain=\(.domain)  path=\(.path)  \(if .expires then "expires=\(".expires")" else "" end)  httpOnly=\(if .httpOnly then "True" else "False" end)  secure=\(if .secure then "True" else "False" end)  sameSite=\(if .sameSite == "no_restriction" then "None" else "\(.sameSite[0:1] | ascii_upcase)\(.sameSite[1:])" end)"
